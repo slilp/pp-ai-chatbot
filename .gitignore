@@ -13,3 +13,4 @@ chatbot-ui/out/
 
 # OS
 .DS_Store
+opensearch/logs*

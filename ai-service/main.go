@@ -17,8 +17,9 @@ func main() {
 
 	var client llm.LLMClient
 	switch cfg.Provider {
-	case "lmstudio":
+	case "openai", "lmstudio":
 		client = llm.NewLMStudioClient(cfg.BaseURL, cfg.APIKey, cfg.Model)
+		log.Print("Provider initialized")
 	default:
 		log.Fatalf("unknown LLM_PROVIDER: %s", cfg.Provider)
 	}

@@ -25,8 +25,14 @@ func NewChatHandler(client llm.LLMClient, skillMD string, mockStore *store.MockS
 	return &ChatHandler{llmClient: client, skillMD: skillMD, mockStore: mockStore}
 }
 
+type HistoryMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
 type ChatRequest struct {
-	Question string `json:"question" binding:"required"`
+	Question string           `json:"question" binding:"required"`
+	History  []HistoryMessage `json:"history"`
 }
 
 func (h *ChatHandler) Handle(c *gin.Context) {
@@ -67,7 +73,7 @@ func (h *ChatHandler) Handle(c *gin.Context) {
 
 	// Call 2: stream the analysis
 	log.Printf("[chat] starting analyst stream...")
-	messages := h.buildAnalystMessages(req.Question, string(rawLogs))
+	messages := h.buildAnalystMessages(req.Question, string(rawLogs), req.History)
 
 	filter := newThinkFilter(func(token string) error {
 		b, _ := json.Marshal(token)
@@ -127,8 +133,10 @@ No explanation. No markdown. Just the JSON object.`,
 	return intent, nil
 }
 
-func (h *ChatHandler) buildAnalystMessages(question, rawLogs string) []llm.Message {
-	return []llm.Message{
+const maxHistoryMessages = 10
+
+func (h *ChatHandler) buildAnalystMessages(question, rawLogs string, history []HistoryMessage) []llm.Message {
+	msgs := []llm.Message{
 		{
 			Role: "system",
 			Content: fmt.Sprintf(`You are a payment platform log analyst for KTB.
@@ -144,11 +152,26 @@ When analyzing errors:
 
 Always answer in Thai language. Write a clear, concise plain text answer. Do not use JSON format.`, h.skillMD),
 		},
-		{
-			Role:    "user",
-			Content: fmt.Sprintf("/no_think\nคำถาม: %s\n\nLog entries:\n%s", question, maskPII(rawLogs)),
-		},
 	}
+
+	// include prior conversation turns (capped to avoid context overflow)
+	start := 0
+	if len(history) > maxHistoryMessages {
+		start = len(history) - maxHistoryMessages
+	}
+	for _, h := range history[start:] {
+		role := h.Role
+		if role != "user" && role != "assistant" {
+			continue
+		}
+		msgs = append(msgs, llm.Message{Role: role, Content: h.Content})
+	}
+
+	msgs = append(msgs, llm.Message{
+		Role:    "user",
+		Content: fmt.Sprintf("/no_think\nคำถาม: %s\n\nLog entries:\n%s", question, maskPII(rawLogs)),
+	})
+	return msgs
 }
 
 // thinkFilter buffers stream tokens and suppresses <think>...</think> blocks

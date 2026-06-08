@@ -31,6 +31,9 @@ function now() {
   return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
+const STORAGE_KEY = 'pp-ai-chatbot-history'
+const MAX_STORED_MESSAGES = 50
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -38,9 +41,35 @@ export default function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
+  // restore from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) setMessages(JSON.parse(saved))
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  // persist to localStorage whenever messages change
+  useEffect(() => {
+    if (messages.length === 0) return
+    try {
+      const toStore = messages.slice(-MAX_STORED_MESSAGES)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore))
+    } catch {
+      // ignore
+    }
+  }, [messages])
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
+
+  const clearHistory = useCallback(() => {
+    setMessages([])
+    try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
+  }, [])
 
   const sendMessage = useCallback(async (question: string) => {
     const q = question.trim()
@@ -54,10 +83,15 @@ export default function ChatPage() {
     setMessages(prev => [...prev, { role: 'assistant', content: '', timestamp: now() }])
 
     try {
+      // build history from completed turns (exclude the two messages we just added)
+      const history = messages
+        .filter(m => m.content)
+        .map(m => ({ role: m.role, content: m.content }))
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q }),
+        body: JSON.stringify({ question: q, history }),
       })
 
       if (!res.body) throw new Error('No response body')
@@ -139,9 +173,19 @@ export default function ChatPage() {
             <p className="text-[#666] text-xs">Powered by Qwen3-14B · LM Studio</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-xs font-medium text-[#057642] bg-[#e7f3ec] border border-[#c3dfd0] px-3 py-1.5 rounded-full">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#057642] animate-pulse" />
-          Connected
+        <div className="flex items-center gap-3">
+          {messages.length > 0 && (
+            <button
+              onClick={clearHistory}
+              className="text-xs text-[#666] hover:text-[#c00] border border-[#e0ddd8] hover:border-[#c00] px-3 py-1.5 rounded-full transition-colors"
+            >
+              Clear chat
+            </button>
+          )}
+          <div className="flex items-center gap-2 text-xs font-medium text-[#057642] bg-[#e7f3ec] border border-[#c3dfd0] px-3 py-1.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#057642] animate-pulse" />
+            Connected
+          </div>
         </div>
       </header>
 
