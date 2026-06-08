@@ -2,6 +2,11 @@
 ai-service/server
 ai-service/*.exe
 
+# Python
+__pycache__/
+*.pyc
+ai-service-py/.venv/
+
 # Node / Next.js
 chatbot-ui/node_modules/
 chatbot-ui/.next/

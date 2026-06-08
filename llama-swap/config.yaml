@@ -1,0 +1,166 @@
+# llama-swap configuration
+# Docs: https://github.com/mostlygeek/llama-swap
+
+# Port llama-swap listens on (OpenAI-compatible API)
+port: 8080
+logLevel: debug
+# llama-swap configuration for pp-ai-chatbot
+# Hardware: 2x RTX 3090 (48 GiB VRAM total) · R9-5950X (16c/32t) · 128 GiB DDR4
+#
+# VRAM budget (all 3 core models simultaneously loaded):
+#   qwen3-32b  Q6_K   weights 26.9 GiB + KV 2.0 GiB = 28.9 GiB
+#   qwen3-14b  Q5_K_M weights 10.5 GiB + KV 1.2 GiB = 11.7 GiB
+#   qwen3-8b   Q6_K   weights  6.7 GiB + KV 0.6 GiB =  7.3 GiB  (parallel=2 → 2x KV)
+#   ─────────────────────────────────────────────────────────────
+#   Total                                              = 47.9 GiB  (+0.1 GiB headroom)
+#
+#   ⚠  Budget is tight. Do NOT increase ctx-size on any model without first
+#      dropping to a lower quant. ctx 8192→16384 on 32b alone adds +2.0 GiB → OOM.
+#
+# Thread budget (5950X, 32 hyperthreads total):
+#   qwen3-32b  16 threads  (orchestrator — most pp work)
+#   qwen3-14b  10 threads  (analyzer)
+#   qwen3-8b    6 threads  (fast path — tg is bandwidth-bound anyway)
+#
+# Model name must match app env vars:
+#   ORCHESTRATOR_MODEL=qwen3-32b
+#   ANALYZER_MODEL=qwen3-14b
+
+healthCheckTimeout: 60
+
+models:
+
+  # ── Orchestrator ────────────────────────────────────────────────────────────
+  # Role    : builds OpenSearch queries + synthesizes Thai response
+  # Needs   : reliable function calling, strong Thai, reasoning ON
+  # Quant   : Q6_K (unsloth) — near-lossless 6-bit, highest priority model
+  # VRAM    : ~28.9 GiB  (weights 26.9 + KV 2.0 at ctx 8192)
+  # Threads : 16 — gets the most cores; pp quality matters most here
+  # ctx     : FIXED at 8192 — budget too tight to increase
+  qwen3-32b:
+    cmd: |
+      llama-server
+      --model /mnt/shared_Duo/llm/models/Qwen3-32B-Q6_K.gguf
+      --port 18881
+      --ctx-size 8192
+      --n-gpu-layers 99
+      --tensor-split 1,1
+      --flash-attn on
+      --threads 16
+      --threads-batch 16
+      --batch-size 512
+      --ubatch-size 512
+      --temp 0.6
+      --top-p 0.95
+      --repeat-penalty 1.0
+      --chat-template-kwargs '{"enable_thinking":false}'
+    proxy: "http://127.0.0.1:18881"
+    ttl: 600
+
+  # ── Analyzer ────────────────────────────────────────────────────────────────
+  # Role    : processes OpenSearch results → structured log analysis / JSON
+  # Needs   : clean JSON output — thinking mode OFF to avoid <think> bleed
+  # Quant   : Q5_K_M (unsloth) — one step above Q4, good quality/size balance
+  # VRAM    : ~11.7 GiB  (weights 10.5 + KV 1.2 at ctx 8192)
+  # Threads : 10
+  # ctx     : FIXED at 8192 — budget too tight to increase
+  qwen3-14b:
+    cmd: |
+      llama-server
+      --model /mnt/shared_Duo/llm/models/Qwen3-14B-Q5_K_M.gguf
+      --port 18882
+      --ctx-size 8192
+      --n-gpu-layers 99
+      --tensor-split 1,1
+      --flash-attn on
+      --threads 10
+      --threads-batch 10
+      --batch-size 512
+      --ubatch-size 512
+      --temp 0.3
+      --top-p 0.9
+      --repeat-penalty 1.0
+      --chat-template-kwargs '{"enable_thinking":false}'
+    proxy: "http://127.0.0.1:18882"
+    ttl: 600
+
+  # ── Fast path ────────────────────────────────────────────────────────────────
+  # Role    : simple/short queries, rapid TTFT
+  # Needs   : low latency — thinking OFF, parallel=2 for throughput
+  # Quant   : Q6_K (unsloth) — only 6.7 GiB, upgrading from Q4 costs almost nothing
+  # VRAM    : ~7.3 GiB  (weights 6.7 + KV 0.6 at ctx 4096 with parallel=2)
+  # Threads : 6 — tg is DDR4-bandwidth-bound, extra threads don't help
+  # parallel: 2 slots — 8b is small enough to handle 2 concurrent requests
+  qwen3-8b:
+    cmd: |
+      llama-server
+      --model /mnt/shared_Duo/llm/models/Qwen3-8B-Q6_K.gguf
+      --port 18883
+      --ctx-size 4096
+      --n-gpu-layers 99
+      --tensor-split 1,1
+      --flash-attn on
+      --threads 6
+      --threads-batch 6
+      --batch-size 512
+      --ubatch-size 512
+      --parallel 2
+      --temp 0.6
+      --top-p 0.95
+      --repeat-penalty 1.0
+      --chat-template-kwargs '{"enable_thinking":false}'
+    proxy: "http://127.0.0.1:18883"
+    ttl: 300
+
+  # ── Optional: GLM-4-32B as analyzer alternative ─────────────────────────────
+  # Quant   : Q5_K_M (bartowski) — UD variant not available for GLM-4
+  # VRAM    : ~24.0 GiB  (weights 22.0 + KV 2.0 at ctx 8192)
+  # ⚠  Cannot load simultaneously with qwen3-32b Q6_K (28.9+24.0 = 52.9 GiB > 48)
+  #    Can load alongside qwen3-14b+qwen3-8b: 24.0+11.7+7.3 = 43.0 GiB ✅
+  #    To use: set ANALYZER_MODEL=glm4-32b and ORCHESTRATOR_MODEL to something else,
+  #    OR accept llama-swap cold-swapping qwen3-32b out when glm4-32b is requested.
+  # NOTE: non-reasoning GLM-4-32B only. GLM-Z1 / GLM-4.7 put output in
+  #       the `reasoning` field, not `content` — breaks analyzer JSON parsing.
+  #
+  # glm4-32b:
+  #   cmd: |
+  #     llama-server
+  #     --model /mnt/shared_Duo/llm/models/THUDM_GLM-4-32B-0414-Q5_K_M.gguf
+  #     --port 18884
+  #     --ctx-size 8192
+  #     --n-gpu-layers 99
+  #     --tensor-split 1,1
+  #     --flash-attn
+  #     --threads 16
+  #     --threads-batch 16
+  #     --batch-size 512
+  #     --ubatch-size 512
+  #     --temp 0.3
+  #   proxy: "http://127.0.0.1:18884"
+  #   ttl: 600
+
+  # ── Optional: Gemma 3 27B QAT as fast-path alternative ─────────────────────
+  # Quant   : Q5_K_M of QAT variant (bartowski) — QAT base trained quant-aware,
+  #           meaningfully better than post-hoc Q5 on standard weights
+  # VRAM    : ~21.9 GiB  (weights 20.0 + KV 1.9 at ctx 4096, large KV due to GQA)
+  # ⚠  Cannot load with qwen3-32b Q6_K (28.9+21.9 = 50.8 GiB > 48)
+  #    Only valid alongside qwen3-14b only: 11.7+21.9 = 33.6 GiB ✅
+  # Good instruction following; weaker Thai + no function calling.
+  # Suitable only for the fast-path role (no function calling required there).
+  #
+  # gemma3-27b:
+  #   cmd: |
+  #     llama-server
+  #     --model /mnt/shared_Duo/llm/models/google_gemma-3-27b-it-qat-Q5_K_M.gguf
+  #     --port 18885
+  #     --ctx-size 4096
+  #     --n-gpu-layers 99
+  #     --tensor-split 1,1
+  #     --flash-attn
+  #     --threads 10
+  #     --threads-batch 10
+  #     --batch-size 512
+  #     --ubatch-size 512
+  #     --temp 0.6
+  #   proxy: "http://127.0.0.1:18885"
+  #   ttl: 300

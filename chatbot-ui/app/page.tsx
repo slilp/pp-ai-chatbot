@@ -9,6 +9,11 @@ interface Message {
   timestamp: string
 }
 
+interface StatusEvent {
+  type: 'status'
+  message: string
+}
+
 const EXAMPLES = [
   {
     title: 'Error Lookup',
@@ -38,6 +43,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [statusText, setStatusText] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -81,6 +87,7 @@ export default function ChatPage() {
 
     // Add empty assistant message to fill in as tokens arrive
     setMessages(prev => [...prev, { role: 'assistant', content: '', timestamp: now() }])
+    setStatusText('Understanding your question...')
 
     try {
       // build history from completed turns (exclude the two messages we just added)
@@ -112,6 +119,7 @@ export default function ChatPage() {
           const payload = line.slice(6).trim()
           if (payload === '[DONE]' || payload === '') continue
           if (payload.startsWith('[ERROR]')) {
+            setStatusText('')
             setMessages(prev => {
               const updated = [...prev]
               updated[updated.length - 1] = {
@@ -123,15 +131,25 @@ export default function ChatPage() {
             break
           }
           try {
-            const token: string = JSON.parse(payload)
-            setMessages(prev => {
-              const updated = [...prev]
-              updated[updated.length - 1] = {
-                ...updated[updated.length - 1],
-                content: updated[updated.length - 1].content + token,
-              }
-              return updated
-            })
+            const parsed = JSON.parse(payload)
+            // Status event from the orchestrator
+            if (parsed && typeof parsed === 'object' && parsed.type === 'status') {
+              setStatusText((parsed as StatusEvent).message)
+              continue
+            }
+            // Text token
+            if (typeof parsed === 'string') {
+              setStatusText('')
+              setLoading(false)
+              setMessages(prev => {
+                const updated = [...prev]
+                updated[updated.length - 1] = {
+                  ...updated[updated.length - 1],
+                  content: updated[updated.length - 1].content + parsed,
+                }
+                return updated
+              })
+            }
           } catch {
             // skip malformed chunk
           }
@@ -148,6 +166,7 @@ export default function ChatPage() {
       })
     } finally {
       setLoading(false)
+      setStatusText('')
       inputRef.current?.focus()
     }
   }, [loading])
@@ -170,7 +189,7 @@ export default function ChatPage() {
           </div>
           <div>
             <h1 className="font-semibold text-[#1c1c1c] text-sm leading-tight">Payment Log AI</h1>
-            <p className="text-[#666] text-xs">Powered by Qwen3-14B · LM Studio</p>
+            <p className="text-[#666] text-xs">Powered by Claude · Anthropic</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -266,8 +285,8 @@ export default function ChatPage() {
             ))
           )}
 
-          {/* Analyzing indicator — shown only during intent extraction (before streaming starts) */}
-          {loading && (
+          {/* Loading indicator — shown while orchestrator/analyzer are working */}
+          {(loading || statusText) && (
             <div className="flex gap-3 animate-fade-in-up">
               <div className="shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-white border border-[#e0ddd8] text-[#0a66c2] text-xs font-bold shadow-sm">
                 AI
@@ -279,7 +298,7 @@ export default function ChatPage() {
                       <span key={d} className="w-2 h-2 rounded-full bg-[#0a66c2] animate-bounce" style={{ animationDelay: `${d}ms` }} />
                     ))}
                   </div>
-                  <span className="text-xs text-[#666]">Analyzing logs…</span>
+                  <span className="text-xs text-[#666]">{statusText || 'Analyzing logs…'}</span>
                 </div>
               </div>
             </div>

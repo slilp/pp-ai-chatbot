@@ -1,17 +1,54 @@
 services:
+  opensearch:
+    image: opensearchproject/opensearch:2.19.1
+    container_name: opensearch
+    environment:
+      - cluster.name=poc-cluster
+      - node.name=opensearch-node1
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      - DISABLE_SECURITY_PLUGIN=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -qv '\"status\":\"red\"'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
   ai-service:
-    build: ./ai-service
+    build: ./ai-service-py
     image: blinksp/ai-chatbot:ai-service
     ports:
       - "8080:8080"
     environment:
-      - LLM_PROVIDER=openai
-      - LLM_BASE_URL=http://10.255.14.156:8080/v1
-      - LLM_API_KEY=llama-cpp
-      - LLM_MODEL=GLM-4.7-UD-Q2_K_XL
+      # LLM (OpenAI-compatible: llama-swap, LM Studio, vLLM, etc.)
+      - LLM_BASE_URL=${LLM_BASE_URL:-http://10.255.14.156:8080/v1}
+      - LLM_API_KEY=${LLM_API_KEY:-llm-key}
+      - ORCHESTRATOR_MODEL=${ORCHESTRATOR_MODEL:-qwen3-32b}
+      - ANALYZER_MODEL=${ANALYZER_MODEL:-qwen3-14b}
+      # Optional: point analyzer at a different endpoint for load balancing
+      # - ANALYZER_BASE_URL=http://host.docker.internal:1235/v1
+      # OpenSearch
+      - OPENSEARCH_URL=http://opensearch:9200
+      - OPENSEARCH_INDEX=${OPENSEARCH_INDEX:-k8s-logs}
       - PORT=8080
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      opensearch:
+        condition: service_healthy
     restart: unless-stopped
 
   chatbot-ui:
@@ -24,3 +61,6 @@ services:
     depends_on:
       - ai-service
     restart: unless-stopped
+
+volumes:
+  opensearch-data:
