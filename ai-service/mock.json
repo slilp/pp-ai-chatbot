@@ -1,0 +1,42 @@
+[
+  {
+    "container-name": "ais-payment-submit",
+    "timestamp": "2026-06-07T20:33:18.333+07:00",
+    "log": {"body":"{\"billerRefType\":\"payeeCode\",\"billerRefValue\":\"12C\",\"ref1\":\"875006783\",\"ref2\":\"\",\"ref3\":\"\",\"ref4\":\"\",\"amount\":50,\"cdiToken\":\"sAG0JUa0Osd30oa\",\"cid\":\"1234567896\",\"channelCode\":\"NN\",\"channelTxnRef\":\"1234567896\",\"overrideTransComment\":\"\",\"ppoaTxnRefId\":\"\",\"sourceOfFund\":\"\",\"sofType\":{\"casa\":{\"sofAccount\":\"1234567896\",\"sofBranchCode\":\"730\",\"sofAccountName\":\"นาย ทดสอบ ระบบ\",\"currency\":\"THB\",\"deductAmount\":50,\"toCurrencyCode\":null,\"convertedAmount\":null,\"fromCostCenter\":null,\"exchangeRate\":0}},\"inputTerminal\":\"MobilNB\",\"methodType\":\"KEYIN\",\"ofsaaChannelCode\":\"100201\"}\n","level":"info","msg":"Request :: POST /api/payment-platform/v3/bpp-module/ais-payment-submit X-Request-Id: 7303e5ab-5eea-4045-bbac-be37e6ff5376","reqMethod":"POST","spanId":"29e6f7f0e0f45fe6","time":"2026-06-07 20:33:18.33305","traceId":"c1656ee32cc78eadbf7554092bb9a19d","type":"Request","url":"/api/payment-platform/v3/bpp-module/ais-payment-submit","xCorrelationId":"887dbb06-45c1-458e-933c-81cc2026323d-crid","xRequestId":"7303e5ab-5eea-4045-bbac-be37e6ff5376"}
+  },
+  {
+    "container-name": "ais-payment-submit",
+    "timestamp": "2026-06-07T20:33:18.335+07:00",
+    "log": {"level":"info","msg":"Client Request :: POST http://ais-prepaid-adapter.billpay-adapter.svc.cluster.local:8080/api/payment-platform/v1/ais-prepaid-adapter X-Request-Id: 97e69762-90c5-48cd-baf5-7ce12c44201c Body: {\"command\":\"PPSQUENB\",\"transactionID\":\"20260607203318wn0tp\",\"amount\":\"50\",\"ref1\":\"875006783\",\"ref2\":\"\",\"ref3\":\"\",\"ref4\":\"\",\"encrypt\":\"\",\"payeeCode\":\"12C\",\"channelId\":\"8\",\"channelCode\":\"NN\",\"compCode\":\"12C\",\"prodCode\":\"12C\",\"effectiveDate\":\"2026-06-07\",\"paymentDateTime\":\"2026-06-07T20:33:18+07:00\",\"customerName\":\"นาย ทดสอบ ระบบ\",\"bankReference\":\"mKTBPP473583919832\",\"additionalBillerInfo\":{\"compCode\":\"12C\",\"customerNo\":\"\"},\"chargeRetryInfo\":{\"retryCount\":0,\"maxChargeRetry\":0,\"retryDelayTime\":\"\"}}","reqMethod":"POST","spanId":"29e6f7f0e0f45fe6","time":"2026-06-07 20:33:18.33583","traceId":"c1656ee32cc78eadbf7554092bb9a19d","type":"ClientRequest","url":"http://ais-prepaid-adapter.billpay-adapter.svc.cluster.local:8080/api/payment-platform/v1/ais-prepaid-adapter","xCorrelationId":"887dbb06-45c1-458e-933c-81cc2026323d-crid","xRequestId":"7303e5ab-5eea-4045-bbac-be37e6ff5376"}
+  },
+  {
+    "container-name": "ais-prepaid-adapter",
+    "timestamp": "2026-06-07T20:33:18.336+07:00",
+    "log": {"level":"info","Session ID":"97e69762-90c5-48cd-baf5-7ce12c44201c","Correlation ID":"887dbb06-45c1-458e-933c-81cc2026323d-crid","Service Request":"{\"amount\":50,\"bankReference\":\"mKTBPP473583919832\",\"channelCode\":\"NN\",\"channelId\":\"8\",\"command\":\"PPSQUENB\",\"compCode\":\"12C\",\"effectiveDate\":\"2026-06-07\",\"encrypt\":\"\",\"payeeCode\":\"12C\",\"paymentDateTime\":\"2026-06-07T20:33:18+07:00\",\"prodCode\":\"12C\",\"transactionID\":\"20260607203318wn0tp\"}"}
+  },
+  {
+    "container-name": "ais-prepaid-adapter",
+    "timestamp": "2026-06-07T20:33:18.340+07:00",
+    "log": {"level":"info","msg":"Client Request :: POST http://ESAD.ais.co.th/ X-Request-Id: 97e69762-90c5-48cd-baf5-7ce12c44201c Body: <soap:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap:Header><AuthenHeader xmlns=\"http://ESAD.ais.co.th/\"><UserName>ktbtopup</UserName><Password>ktbtopup</Password></AuthenHeader></soap:Header><soap:Body><ETWS_PPS_Topup xmlns=\"http://ESAD.ais.co.th/\"><request><ProjectCode>KTB12CTOPUNET</ProjectCode><Command>PPSQUENB</Command><TransactionID>20260607203318wn0tp</TransactionID><MobileNo>875006783</MobileNo><Amount>50</Amount><ServiceType>1</ServiceType><Ref1></Ref1><Ref2></Ref2><Ref3></Ref3><Encrypt></Encrypt></request></ETWS_PPS_Topup></soap:Body></soap:Envelope>","reqMethod":"POST","spanId":"29e6f7f0e0f45fe6","time":"2026-06-07 20:33:18.34000","traceId":"c1656ee32cc78eadbf7554092bb9a19d","type":"ClientRequest","url":"http://ESAD.ais.co.th/","xCorrelationId":"887dbb06-45c1-458e-933c-81cc2026323d-crid","xRequestId":"97e69762-90c5-48cd-baf5-7ce12c44201c"}
+  },
+  {
+    "container-name": "ais-prepaid-adapter",
+    "timestamp": "2026-06-07T20:33:18.460+07:00",
+    "log": {"level":"info","msg":"Client Response :: POST http://ESAD.ais.co.th/ X-Request-Id: 97e69762-90c5-48cd-baf5-7ce12c44201c Body: <?xml version=\"1.0\" encoding=\"utf-8\"?><soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><soap:Body><ETWS_PPS_TopupResponse xmlns=\"http://ESAD.ais.co.th/\"><ETWS_PPS_TopupResult><Command>PPSQUENB</Command><TransactionID>20260607203318wn0tp</TransactionID><MobileNo>875006783</MobileNo><Amount>50.00</Amount><BatchNo /><SerialNo /><Other /><Datetime>07/06/2569 20:33:18</Datetime><Status>ITWS006</Status><Message>(Validate Mobile Error)</Message></ETWS_PPS_TopupResult></ETWS_PPS_TopupResponse></soap:Body></soap:Envelope>","reqMethod":"POST","size":590,"spanId":"29e6f7f0e0f45fe6","statusCode":200,"time":"2026-06-07 20:33:18.46000","timeInMS":120,"traceId":"c1656ee32cc78eadbf7554092bb9a19d","type":"ClientResponse","url":"http://ESAD.ais.co.th/","xCorrelationId":"887dbb06-45c1-458e-933c-81cc2026323d-crid","xRequestId":"97e69762-90c5-48cd-baf5-7ce12c44201c"}
+  },
+  {
+    "container-name": "ais-prepaid-adapter",
+    "timestamp": "2026-06-07T20:33:18.461+07:00",
+    "log": {"level":"error","Session ID":"97e69762-90c5-48cd-baf5-7ce12c44201c","Correlation ID":"887dbb06-45c1-458e-933c-81cc2026323d-crid","error":"statusCode: 500, errorCode: BP50002, errorDescription: AIS - Unable to process transaction","msg":"Error Occurred While Calling EMS Prepaid Endpoint."}
+  },
+  {
+    "container-name": "ais-payment-submit",
+    "timestamp": "2026-06-07T20:33:18.474+07:00",
+    "log": {"level":"info","msg":"Client Response :: POST http://ais-prepaid-adapter.billpay-adapter.svc.cluster.local:8080/api/payment-platform/v1/ais-prepaid-adapter X-Request-Id: 97e69762-90c5-48cd-baf5-7ce12c44201c Body: {\"errorCode\":\"BP50002\",\"errorDescription\":\"AIS - Unable to process transaction\"}","reqMethod":"POST","size":80,"spanId":"29e6f7f0e0f45fe6","statusCode":500,"time":"2026-06-07 20:33:18.47496","timeInMS":139,"traceId":"c1656ee32cc78eadbf7554092bb9a19d","type":"ClientResponse","url":"http://ais-prepaid-adapter.billpay-adapter.svc.cluster.local:8080/api/payment-platform/v1/ais-prepaid-adapter","xCorrelationId":"887dbb06-45c1-458e-933c-81cc2026323d-crid","xRequestId":"7303e5ab-5eea-4045-bbac-be37e6ff5376"}
+  },
+  {
+    "container-name": "ais-payment-submit",
+    "timestamp": "2026-06-07T20:33:18.475+07:00",
+    "log": {"level":"error","msg":"BP50002 : AIS - Unable to process transaction","respErrorCode":"BP50002","spanId":"29e6f7f0e0f45fe6","time":"2026-06-07 20:33:18.47509","traceId":"c1656ee32cc78eadbf7554092bb9a19d","xCorrelationId":"887dbb06-45c1-458e-933c-81cc2026323d-crid","xRequestId":"7303e5ab-5eea-4045-bbac-be37e6ff5376"}
+  }
+]

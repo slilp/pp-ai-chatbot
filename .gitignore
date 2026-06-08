@@ -1,0 +1,15 @@
+# Go
+ai-service/server
+ai-service/*.exe
+
+# Node / Next.js
+chatbot-ui/node_modules/
+chatbot-ui/.next/
+chatbot-ui/out/
+
+# Env
+.env
+.env.local
+
+# OS
+.DS_Store
