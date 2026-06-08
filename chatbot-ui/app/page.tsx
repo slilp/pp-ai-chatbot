@@ -46,6 +46,9 @@ export default function ChatPage() {
   const [statusText, setStatusText] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  // Always-current snapshot of messages — lets sendMessage read history without stale closure
+  const messagesRef = useRef<Message[]>([])
+  useEffect(() => { messagesRef.current = messages }, [messages])
 
   // restore from localStorage on mount
   useEffect(() => {
@@ -90,8 +93,8 @@ export default function ChatPage() {
     setStatusText('Understanding your question...')
 
     try {
-      // build history from completed turns (exclude the two messages we just added)
-      const history = messages
+      // build history from completed turns using ref to avoid stale closure
+      const history = messagesRef.current
         .filter(m => m.content)
         .map(m => ({ role: m.role, content: m.content }))
 

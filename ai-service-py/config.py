@@ -19,14 +19,18 @@ ANALYZER_API_KEY: str = os.getenv("ANALYZER_API_KEY", os.getenv("LLM_API_KEY", "
 
 # ── OpenSearch ─────────────────────────────────────────────────────────────────
 OPENSEARCH_URL: str = os.getenv("OPENSEARCH_URL", "http://localhost:9200")
-OPENSEARCH_INDEX: str = os.getenv("OPENSEARCH_INDEX", "k8s-logs")
+OPENSEARCH_INDEX: str = os.getenv("OPENSEARCH_INDEX", "payment-platform-uat-sample")
 OPENSEARCH_USER: str = os.getenv("OPENSEARCH_USER", "")
 OPENSEARCH_PASS: str = os.getenv("OPENSEARCH_PASS", "")
 
 # ── Service ────────────────────────────────────────────────────────────────────
 PORT: int = int(os.getenv("PORT", "8080"))
 
-# Max log documents passed to the analyzer (controls sub-agent context size)
+# Max log documents passed to the analyzer
 MAX_LOG_HITS: int = int(os.getenv("MAX_LOG_HITS", "150"))
+# Hard character cap on formatted log text sent to analyzer LLM.
+# ~12000 chars ≈ 3000 tokens, leaving room for system prompt + response within 8192 ctx.
+# Increase if analyzer model has a larger context window.
+MAX_LOG_CHARS: int = int(os.getenv("MAX_LOG_CHARS", "20000"))
 
 PROMPTS_DIR: Path = Path(__file__).parent / "prompts"

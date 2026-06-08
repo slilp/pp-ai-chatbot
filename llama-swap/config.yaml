@@ -9,13 +9,14 @@ logLevel: debug
 #
 # VRAM budget (all 3 core models simultaneously loaded):
 #   qwen3-32b  Q6_K   weights 26.9 GiB + KV 2.0 GiB = 28.9 GiB
-#   qwen3-14b  Q5_K_M weights 10.5 GiB + KV 1.2 GiB = 11.7 GiB
+#   qwen3-14b  Q5_K_M weights 10.5 GiB + KV 2.8 GiB = 13.3 GiB  (ctx 16384)
 #   qwen3-8b   Q6_K   weights  6.7 GiB + KV 0.6 GiB =  7.3 GiB  (parallel=2 → 2x KV)
 #   ─────────────────────────────────────────────────────────────
-#   Total                                              = 47.9 GiB  (+0.1 GiB headroom)
+#   Total                                              = 49.5 GiB  (1.5 GiB over — see note below)
 #
-#   ⚠  Budget is tight. Do NOT increase ctx-size on any model without first
-#      dropping to a lower quant. ctx 8192→16384 on 32b alone adds +2.0 GiB → OOM.
+#   ⚠  qwen3-14b ctx was raised 8192→16384 for analyzer log context (+1.6 GiB).
+#      If OOM: drop qwen3-8b from Q6_K to Q4_K_M to free ~0.7 GiB (total ~48.8 GiB).
+#      Do NOT raise qwen3-32b ctx — ctx 8192→16384 on 32b adds +2.0 GiB → OOM.
 #
 # Thread budget (5950X, 32 hyperthreads total):
 #   qwen3-32b  16 threads  (orchestrator — most pp work)
@@ -61,15 +62,18 @@ models:
   # Role    : processes OpenSearch results → structured log analysis / JSON
   # Needs   : clean JSON output — thinking mode OFF to avoid <think> bleed
   # Quant   : Q5_K_M (unsloth) — one step above Q4, good quality/size balance
-  # VRAM    : ~11.7 GiB  (weights 10.5 + KV 1.2 at ctx 8192)
+  # VRAM    : ~13.3 GiB  (weights 10.5 + KV 2.8 at ctx 16384)
   # Threads : 10
-  # ctx     : FIXED at 8192 — budget too tight to increase
+  # ctx     : 16384 — analyzer receives up to ~12000 chars log text (~3000t)
+  #           + system prompt (~1500t) + response budget (2048t) = ~6550t headroom
+  # VRAM delta vs 8192: +1.6 GiB. Total budget now ~49.5 GiB.
+  #           If OOM, drop qwen3-8b to Q4_K_M to free ~0.7 GiB.
   qwen3-14b:
     cmd: |
       llama-server
       --model /mnt/shared_Duo/llm/models/Qwen3-14B-Q5_K_M.gguf
       --port 18882
-      --ctx-size 8192
+      --ctx-size 16384
       --n-gpu-layers 99
       --tensor-split 1,1
       --flash-attn on

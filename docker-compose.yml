@@ -26,6 +26,18 @@ services:
       interval: 15s
       timeout: 10s
       retries: 10
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.19.1
+    container_name: opensearch-dashboards
+    environment:
+      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    ports:
+      - "5601:5601"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
 
   ai-service:
     build: ./ai-service-py
@@ -34,15 +46,18 @@ services:
       - "8080:8080"
     environment:
       # LLM (OpenAI-compatible: llama-swap, LM Studio, vLLM, etc.)
-      - LLM_BASE_URL=${LLM_BASE_URL:-http://10.255.14.156:8080/v1}
+      # - LLM_BASE_URL=${LLM_BASE_URL:-http://10.255.14.156:8080/v1}
+      - LLM_BASE_URL=http://10.243.26.80:1234/v1
       - LLM_API_KEY=${LLM_API_KEY:-llm-key}
-      - ORCHESTRATOR_MODEL=${ORCHESTRATOR_MODEL:-qwen3-32b}
-      - ANALYZER_MODEL=${ANALYZER_MODEL:-qwen3-14b}
+      # - ORCHESTRATOR_MODEL=${ORCHESTRATOR_MODEL:-qwen3-32b}
+      # - ANALYZER_MODEL=${ANALYZER_MODEL:-qwen3-14b}
+      - ORCHESTRATOR_MODEL=qwen/qwen3-14b
+      - ANALYZER_MODEL=qwen/qwen3-8b
       # Optional: point analyzer at a different endpoint for load balancing
       # - ANALYZER_BASE_URL=http://host.docker.internal:1235/v1
       # OpenSearch
       - OPENSEARCH_URL=http://opensearch:9200
-      - OPENSEARCH_INDEX=${OPENSEARCH_INDEX:-k8s-logs}
+      - OPENSEARCH_INDEX=payment-platform-uat-sample
       - PORT=8080
     extra_hosts:
       - "host.docker.internal:host-gateway"

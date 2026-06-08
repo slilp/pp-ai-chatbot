@@ -47,7 +47,7 @@ _TOOLS = [
         "function": {
             "name": "analyze_logs",
             "description": (
-                "Execute an OpenSearch query against the payment logs index (k8s-logs) "
+                "Execute an OpenSearch query against the payment logs index (payment-platform-uat-sample) "
                 "and analyze the matching log entries. "
                 "Call this to answer ANY question about payment logs, errors, transactions, or traces. "
                 "IMPORTANT: all log content is inside the `message` text field — use match_phrase. "
@@ -105,11 +105,26 @@ def _build_messages(question: str, history: list[dict]) -> list[dict]:
     return messages
 
 
+def _strip_think_tags(s: str) -> str:
+    """Remove <think>...</think> blocks and trailing whitespace from a string."""
+    s = re.sub(r"<think>.*?</think>", "", s, flags=re.DOTALL)
+    return s.strip()
+
+
 def _validate_query(q: object) -> dict:
     """
     Ensure the query is a usable dict. Returns a broad fallback query if not.
     Corrects common model mistakes like wrong field names in match_phrase.
     """
+    # Some models (GLM) wrap the JSON object as a string — try to parse it
+    if isinstance(q, str):
+        q = _strip_think_tags(q)
+        try:
+            q = json.loads(q)
+            logger.info("Parsed string-encoded opensearch_query successfully")
+        except json.JSONDecodeError:
+            pass
+
     if not isinstance(q, dict):
         logger.warning("LLM returned non-dict query (%s), using fallback", type(q).__name__)
         return {
@@ -172,16 +187,16 @@ async def orchestrate(
 
     messages = _build_messages(question, history)
 
-    # Step 1: Let the orchestrator build the OpenSearch query (non-streaming, tool_choice=required)
-    # Using tool_choice="required" so the model always produces a tool call.
-    # 4096 tokens ensures the full query JSON fits before the model finishes.
+    # Step 1: Let the orchestrator decide — call analyze_logs or answer directly.
+    # tool_choice="auto": model uses the tool for log queries, skips it for conversational follow-ups.
+    # max_tokens=16384: reasoning models emit a <think> block before the tool call JSON.
     try:
         first_response = _client.chat.completions.create(
             model=config.ORCHESTRATOR_MODEL,
-            max_tokens=4096,
+            max_tokens=16384,
             messages=messages,
             tools=_TOOLS,
-            tool_choice="required",
+            tool_choice="auto",
         )
     except Exception as exc:
         logger.error("Orchestrator first call failed: %s", exc)
@@ -193,9 +208,26 @@ async def orchestrate(
 
     tool_calls = choice.message.tool_calls
     if not tool_calls:
-        # Should not happen with tool_choice=required, but handle gracefully
-        logger.warning("No tool_calls in first response (finish_reason=%s)", choice.finish_reason)
-        yield error_event("LLM did not generate a search query. Please rephrase your question.")
+        # Model chose to answer directly from conversation context — stream that response
+        logger.info("No tool call — streaming direct answer (finish_reason=%s)", choice.finish_reason)
+        direct_content = choice.message.content or ""
+        if not direct_content:
+            # Some reasoning models put output in reasoning field when content is empty
+            direct_content = getattr(choice.message, "reasoning", None) or ""
+        if not direct_content:
+            yield error_event("LLM returned an empty response. Please rephrase your question.")
+            return
+
+        yield status_event("กำลังตอบ...")
+
+        # Filter think tags from direct response before streaming
+        tokens: list[str] = []
+        think_filter = ThinkFilter(lambda t: tokens.append(t))
+        think_filter.write(direct_content)
+        think_filter.write("")  # flush
+        for token in tokens:
+            yield text_event(token)
+        yield DONE_EVENT
         return
 
     # Step 2: Parse and validate the tool call
@@ -212,10 +244,13 @@ async def orchestrate(
         return
 
     raw_query = raw_args.get("opensearch_query")
+    # Strip think tags that GLM sometimes leaks into argument values
+    if isinstance(raw_query, str):
+        raw_query = _strip_think_tags(raw_query)
     logger.info("opensearch_query type=%s value=%s", type(raw_query).__name__, json.dumps(raw_query, default=str)[:300])
 
     opensearch_query = _validate_query(raw_query)
-    analysis_focus: str = raw_args.get("analysis_focus", "General log analysis")
+    analysis_focus: str = _strip_think_tags(raw_args.get("analysis_focus", "General log analysis"))
 
     logger.info(
         "Calling analyze_logs: focus=%r query=%s",

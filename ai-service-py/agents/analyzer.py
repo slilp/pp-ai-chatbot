@@ -139,6 +139,17 @@ def analyze(
     masked_docs = mask_doc(docs)
     log_text = _format_logs(masked_docs)
 
+    # Hard cap: truncate log text to stay within the analyzer model's context window.
+    if len(log_text) > config.MAX_LOG_CHARS:
+        log_text = log_text[: config.MAX_LOG_CHARS]
+        log_text += f"\n\n...[truncated to {config.MAX_LOG_CHARS} chars — increase MAX_LOG_CHARS or analyzer ctx-size to see more]"
+        logger.warning(
+            "Log text truncated to %d chars (had %d entries, %d chars total)",
+            config.MAX_LOG_CHARS,
+            len(docs),
+            len(_format_logs(masked_docs)),
+        )
+
     logger.info(
         "Analyzer sending %d entries to LLM (%d chars)",
         len(docs),

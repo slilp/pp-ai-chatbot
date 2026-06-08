@@ -13,7 +13,7 @@
 | `partner-payment` | `partner-payment-inquiry`, `partner-payment-request`, `partner-payment-deeplink-validate` |
 | `sof-module`, `sof-module-orchestrator` | `sof-reversal`, `casa-payment-processor` |
 
-## Log Document Structure (OpenSearch `k8s-logs` index)
+## Log Document Structure (OpenSearch `payment-platform-uat-sample` index)
 
 Each document has these TOP-LEVEL fields:
 ```
