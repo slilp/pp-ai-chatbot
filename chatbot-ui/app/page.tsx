@@ -20,6 +20,11 @@ const EXAMPLES = [
     desc: 'I want error on 2026-06-08',
     query: 'I want error on 2026-06-08',
   },
+  {
+    title: 'AIS related error',
+    desc: 'ค้นหา error ที่เกี่ยวกับ AIS ในวันที่ 8 มิถุนายน 2026',
+    query: 'ค้นหา error ที่เกี่ยวกับ AIS ในวันที่ 8 มิถุนายน 2026',
+  }
 ]
 
 function now() {
@@ -182,7 +187,7 @@ export default function ChatPage() {
           </div>
           <div>
             <h1 className="font-semibold text-[#1c1c1c] text-sm leading-tight">Payment Log AI</h1>
-            <p className="text-[#666] text-xs">Powered by Claude · Anthropic</p>
+            <p className="text-[#666] text-xs">Powered by KuranasakiRTX</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -214,6 +219,7 @@ export default function ChatPage() {
                 <h2 className="text-2xl font-bold text-[#1c1c1c]">How can I help you?</h2>
                 <p className="text-[#666] text-sm max-w-sm">
                   Ask me anything about payment platform logs — errors, transaction traces, or root cause analysis.
+                  Limited to UAT data on 8 June 2026 only
                 </p>
               </div>
 
