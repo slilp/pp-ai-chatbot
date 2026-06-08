@@ -17,18 +17,8 @@ interface StatusEvent {
 const EXAMPLES = [
   {
     title: 'Error Lookup',
-    desc: 'What errors occurred on 2026-06-07 between 10:00 – 11:00?',
-    query: 'What errors occurred on 2026-06-07 between 10:00 – 11:00?',
-  },
-  {
-    title: 'Transaction Trace',
-    desc: 'Trace transaction ID 20260607203318wn0tp end-to-end.',
-    query: 'Trace transaction ID 20260607203318wn0tp end-to-end.',
-  },
-  {
-    title: 'Error Ref Lookup',
-    desc: 'Error from ref1 875006783',
-    query: 'Error from ref1 875006783',
+    desc: 'I want error on 2026-06-08',
+    query: 'I want error on 2026-06-08',
   },
 ]
 
