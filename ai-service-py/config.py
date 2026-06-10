@@ -26,6 +26,16 @@ OPENSEARCH_PASS: str = os.getenv("OPENSEARCH_PASS", "")
 # ── Service ────────────────────────────────────────────────────────────────────
 PORT: int = int(os.getenv("PORT", "8080"))
 
+# Fields to fetch from OpenSearch — only what the analyzer pipeline needs.
+# Cuts network payload and memory for large result sets.
+# Set OPENSEARCH_SOURCE_FIELDS=* to disable projection and fetch all fields.
+_raw_source_fields = os.getenv("OPENSEARCH_SOURCE_FIELDS", "@timestamp,container,namespace,message")
+OPENSEARCH_SOURCE_FIELDS: list[str] | bool = (
+    True  # fetch all
+    if _raw_source_fields.strip() == "*"
+    else [f.strip() for f in _raw_source_fields.split(",") if f.strip()]
+)
+
 # Max log documents passed to the analyzer
 MAX_LOG_HITS: int = int(os.getenv("MAX_LOG_HITS", "150"))
 # Hard character cap on formatted log text sent to analyzer LLM.

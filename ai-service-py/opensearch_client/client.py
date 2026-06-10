@@ -43,10 +43,18 @@ def search(query: dict, index: str | None = None) -> list[dict]:
     Raises:
         RuntimeError: If OpenSearch is unreachable or returns a query error.
     """
+    # Inject _source field projection unless the caller already set it.
+    # Fetching only the fields the analyzer pipeline consumes dramatically
+    # reduces the network payload for documents with many metadata fields.
+    body = query
+    if "_source" not in query and config.OPENSEARCH_SOURCE_FIELDS is not True:
+        body = {**query, "_source": config.OPENSEARCH_SOURCE_FIELDS}
+        logger.debug("_source projection applied: %s", config.OPENSEARCH_SOURCE_FIELDS)
+
     idx = index or config.OPENSEARCH_INDEX
     client = get_client()
     try:
-        response = client.search(index=idx, body=query)
+        response = client.search(index=idx, body=body)
     except os_exc.ConnectionError as exc:
         raise RuntimeError(
             f"OpenSearch unreachable at {config.OPENSEARCH_URL}: {exc}"
