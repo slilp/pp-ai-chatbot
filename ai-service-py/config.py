@@ -35,6 +35,11 @@ MAX_LOG_CHARS: int = int(os.getenv("MAX_LOG_CHARS", "20000"))
 
 PROMPTS_DIR: Path = Path(__file__).parent / "prompts"
 
+# ── Log Deduplication (P2) ─────────────────────────────────────────────────────
+LOG_DEDUP_ENABLED: bool = os.getenv("LOG_DEDUP_ENABLED", "true").lower() == "true"
+LOG_DEDUP_SIMILARITY_THRESHOLD: float = float(os.getenv("LOG_DEDUP_SIMILARITY_THRESHOLD", "0.85"))
+LOG_DEDUP_MAX_LOGS: int = int(os.getenv("LOG_DEDUP_MAX_LOGS", "60"))
+
 # ── Confluence RAG (P7) ────────────────────────────────────────────────────────
 # Set CONFLUENCE_ENABLED=true and fill credentials to activate.
 # Get an Atlassian API token at: https://id.atlassian.com/manage-profile/security/api-tokens
