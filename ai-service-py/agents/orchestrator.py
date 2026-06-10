@@ -2,10 +2,12 @@
 Orchestrator (main agent).
 
 Flow:
-  1. Build messages with system prompt (business context + OpenSearch schema).
-  2. Non-streaming call with function definitions → LLM builds query + calls analyze_logs.
-  3. Execute analyze_logs (sub-agent in analyzer.py).
-  4. Feed results back and stream the final Thai-language response (with think-tag filtering).
+  1. [Stage A] Fetch Confluence business context (if enabled) — service topology & rules.
+  2. Build messages with system prompt + optional Confluence context.
+  3. Non-streaming call with function definitions → LLM builds query + calls analyze_logs.
+  4. Execute analyze_logs (sub-agent in analyzer.py).
+  5. [Stage B] Fetch Confluence resolution docs for discovered BP error codes (if enabled).
+  6. Feed tool result (+ resolution docs) back and stream the final Thai-language response.
 
 Uses OpenAI-compatible chat completions API (function calling / tool_use).
 """
@@ -20,6 +22,7 @@ from openai import OpenAI
 
 import config
 from agents.analyzer import analyze
+from utils.confluence_rag import search_business_context, search_resolution_docs
 from utils.sse import text_event, status_event, error_event, DONE_EVENT
 from utils.think_filter import ThinkFilter
 
@@ -91,8 +94,19 @@ def _today_bkk() -> str:
     return _dt.datetime.now(bkk).strftime("%Y-%m-%d")
 
 
-def _build_messages(question: str, history: list[dict]) -> list[dict]:
-    messages = [{"role": "system", "content": _SYSTEM_PROMPT}]
+def _build_messages(
+    question: str,
+    history: list[dict],
+    wiki_context: str = "",
+) -> list[dict]:
+    system_content = _SYSTEM_PROMPT
+    if wiki_context:
+        system_content += (
+            "\n\n---\n## Relevant Documentation from Confluence\n"
+            + wiki_context
+            + "\n---"
+        )
+    messages = [{"role": "system", "content": system_content}]
     for msg in history[-_MAX_HISTORY:]:
         if msg.get("role") in ("user", "assistant"):
             messages.append({"role": msg["role"], "content": msg["content"]})
@@ -185,7 +199,14 @@ async def orchestrate(
     """
     yield status_event("Understanding your question...")
 
-    messages = _build_messages(question, history)
+    # Stage A: fetch Confluence business context before building the query.
+    # This grounds the LLM in service topology and business rules so it builds
+    # a more accurate OpenSearch query (correct containers, field names, etc.).
+    wiki_context = await search_business_context(question)
+    if wiki_context:
+        logger.info("[Confluence Stage A] Injecting %d chars of wiki context", len(wiki_context))
+
+    messages = _build_messages(question, history, wiki_context=wiki_context)
 
     # Step 1: Let the orchestrator decide — call analyze_logs or answer directly.
     # tool_choice="auto": model uses the tool for log queries, skips it for conversational follow-ups.
@@ -270,6 +291,25 @@ async def orchestrate(
 
     yield status_event("Summarizing results...")
 
+    # Stage B: fetch Confluence resolution docs for discovered BP error codes.
+    # Appended to the tool result so the final Thai response can cite runbook steps.
+    bp_codes = re.findall(r"BP\d+", analysis_result)
+    resolution_docs = await search_resolution_docs(bp_codes, analysis_result)
+    if resolution_docs:
+        logger.info(
+            "[Confluence Stage B] Injecting %d chars of resolution docs (codes: %s)",
+            len(resolution_docs),
+            bp_codes,
+        )
+
+    # Build tool result content — append resolution docs if available
+    tool_result_content = analysis_result
+    if resolution_docs:
+        tool_result_content += (
+            "\n\n---\n## Relevant Runbook / Documentation from Confluence\n"
+            + resolution_docs
+        )
+
     # Step 4: Feed tool result back and stream the final Thai-language response
     messages.append({
         "role": "assistant",
@@ -288,7 +328,7 @@ async def orchestrate(
     messages.append({
         "role": "tool",
         "tool_call_id": tool_call_id,
-        "content": analysis_result,
+        "content": tool_result_content,
     })
     # Append instruction to respond in Thai without further tool calls
     messages.append({
