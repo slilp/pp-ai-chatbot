@@ -7,38 +7,45 @@ Two complementary paths are used depending on task complexity:
   │  SIMPLE / CLEAR TARGET → Direct Confluence REST API                     │
   │  • Stage B (post-analysis): search by specific BP error codes           │
   │  • Any search where the target keyword is already known                 │
-  │  • Fast, no extra dependencies                                          │
+  │  • Fast, no extra dependencies; works with any classic API token        │
   ├─────────────────────────────────────────────────────────────────────────┤
   │  COMPLEX → Atlassian Rovo MCP (Teamwork Graph)                         │
-  │  • Stage A (pre-query): understand service topology & relationships     │
-  │  • Cross-product context: Confluence ↔ Jira ↔ Services                 │
-  │  • Requires CONFLUENCE_MCP_TOKEN (Rovo MCP OAuth / API token with      │
-  │    Teamwork Graph org-admin access)                                     │
-  │  • Falls back to REST if MCP is unavailable or permission denied        │
+  │  • Stage A (pre-query): cross-product context — Confluence ↔ Jira      │
+  │  • Two tokens required:                                                 │
+  │      CONFLUENCE_MCP_TOKEN   — Bearer auth for the MCP server           │
+  │      CONFLUENCE_GRAPH_TOKEN — Teamwork Graph tool calls                │
+  │  • Org admin must enable Teamwork Graph API access at                  │
+  │    admin.atlassian.com → Security → API token policies                 │
+  │  • Falls back silently to REST if MCP is unavailable or denied         │
   └─────────────────────────────────────────────────────────────────────────┘
 
 Pipeline:
 
   User question
-    → [Stage A - COMPLEX] Rovo MCP graph context (service topology)
-              ↕ fallback if MCP unavailable
-    → [Stage A - SIMPLE]  REST CQL full-text search
-    → Orchestrator builds better OpenSearch query
+    → [Stage A - COMPLEX]  Rovo MCP Teamwork Graph  (CONFLUENCE_MCP_TOKEN)
+              ↕ falls back silently on permission denied
+    → [Stage A - SIMPLE]   REST CQL full-text search (CONFLUENCE_API_TOKEN)
+    → Orchestrator builds OpenSearch query with wiki context injected
     → Analyzer executes query + analyzes logs
-    → [Stage B - SIMPLE]  REST CQL search for found BP error codes
-    → Orchestrator synthesises Thai response with runbook steps
+    → [Stage B - SIMPLE]   REST CQL search for found BP error codes
+    → Orchestrator synthesises Thai response with resolution steps
 
-Required config (REST path):
+Required config (REST path — works today):
   CONFLUENCE_ENABLED=true
   CONFLUENCE_SITE_URL=https://yourcompany.atlassian.net
   CONFLUENCE_USER_EMAIL=you@company.com
   CONFLUENCE_API_TOKEN=<classic-api-token>
 
-Optional config (MCP path):
-  CONFLUENCE_MCP_TOKEN=<rovo-mcp-token-with-teamwork-graph-access>
-  CONFLUENCE_SPACE_KEYS=RUNBOOKS,OPS,PAYMENT  (empty = all spaces)
+Optional config (MCP complex path — needs org-admin Teamwork Graph access):
+  CONFLUENCE_MCP_TOKEN=<rovo-mcp-token>    # Bearer auth for MCP server
+  CONFLUENCE_GRAPH_TOKEN=<graph-token>     # Teamwork Graph tool calls
+  CONFLUENCE_SPACE_KEYS=RUNBOOKS,OPS       # empty = all spaces
   CONFLUENCE_TOP_K=3
   CONFLUENCE_MAX_CHARS=1500
+
+⚠ To enable Teamwork Graph (MCP complex path):
+  Ask your Atlassian org admin to allow API token access to Teamwork Graph:
+  admin.atlassian.com → Security → API token policies → Teamwork Graph
 """
 
 from __future__ import annotations
@@ -103,6 +110,17 @@ def _is_mcp_configured() -> bool:
     return bool(
         config.CONFLUENCE_ENABLED
         and getattr(config, "CONFLUENCE_MCP_TOKEN", "")
+    )
+
+
+def _graph_token() -> str:
+    """
+    Token used as Bearer auth for Teamwork Graph tool calls.
+    Prefers CONFLUENCE_GRAPH_TOKEN; falls back to CONFLUENCE_MCP_TOKEN.
+    """
+    return (
+        getattr(config, "CONFLUENCE_GRAPH_TOKEN", "")
+        or getattr(config, "CONFLUENCE_MCP_TOKEN", "")
     )
 
 
@@ -197,21 +215,36 @@ def _format_rest_pages(pages: list[dict], max_chars: int) -> str:
 
 # ─── MCP / Rovo Teamwork Graph path ──────────────────────────────────────────
 
+# Track whether we've already warned about the org-admin requirement
+_mcp_graph_permission_warned = False
+
+
 async def _mcp_call(tool: str, args: dict[str, Any]) -> str | None:
     """
-    Call one Rovo MCP tool.  Returns joined text content or None on any error.
-    Uses CONFLUENCE_MCP_TOKEN (separate from the classic REST API token).
+    Call one Rovo MCP tool.
+
+    Auth split:
+      • MCP server connection  → CONFLUENCE_MCP_TOKEN  (Rovo MCP token)
+      • Teamwork Graph tools   → CONFLUENCE_GRAPH_TOKEN (Graph token)
+        Falls back to CONFLUENCE_MCP_TOKEN if GRAPH_TOKEN is empty.
+
+    Returns joined text content or None on any error / permission denied.
     """
+    global _mcp_graph_permission_warned
     if not _ensure_mcp():
         return None
     mcp_token = getattr(config, "CONFLUENCE_MCP_TOKEN", "")
     if not mcp_token:
         return None
 
+    # For Teamwork Graph tools use the dedicated graph token if available
+    graph_tools = {"getTeamworkGraphContext", "getTeamworkGraphObject", "addTeamworkGraphContext"}
+    bearer_token = _graph_token() if tool in graph_tools else mcp_token
+
     try:
         async with _streamablehttp_client(
             url=_MCP_URL,
-            headers={"Authorization": f"Bearer {mcp_token}"},
+            headers={"Authorization": f"Bearer {bearer_token}"},
         ) as (read_stream, write_stream, _):
             async with _ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
@@ -223,13 +256,18 @@ async def _mcp_call(tool: str, args: dict[str, Any]) -> str | None:
                         if hasattr(item, "text") and item.text
                     ]
                     raw = "\n".join(texts)
-                    # Treat permission errors as "no result" rather than crashing
+                    # Detect org-admin permission gate; warn once then fall back silently
                     if '"error":true' in raw or "don't have permission" in raw.lower():
-                        logger.info(
-                            "[Confluence MCP] Permission denied for %r — "
-                            "needs Teamwork Graph org-admin access. Falling back to REST.",
-                            tool,
-                        )
+                        if not _mcp_graph_permission_warned:
+                            _mcp_graph_permission_warned = True
+                            logger.warning(
+                                "[Confluence MCP] Teamwork Graph permission denied.\n"
+                                "  Token used: CONFLUENCE_%s_TOKEN\n"
+                                "  Fix: ask your Atlassian org admin to enable Teamwork Graph API\n"
+                                "  access at admin.atlassian.com → Security → API token policies.\n"
+                                "  Falling back to REST-only mode.",
+                                "GRAPH" if tool in graph_tools and getattr(config, "CONFLUENCE_GRAPH_TOKEN", "") else "MCP",
+                            )
                         return None
                     return raw or None
     except Exception as exc:

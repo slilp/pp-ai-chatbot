@@ -67,6 +67,8 @@ services:
       - CONFLUENCE_API_TOKEN=${CONFLUENCE_API_TOKEN:-}
       # MCP token (Rovo Teamwork Graph, needs org-admin access — optional)
       - CONFLUENCE_MCP_TOKEN=${CONFLUENCE_MCP_TOKEN:-}
+      # Teamwork Graph token for getTeamworkGraphContext/Object (needs org-admin policy)
+      - CONFLUENCE_GRAPH_TOKEN=${CONFLUENCE_GRAPH_TOKEN:-}
       - CONFLUENCE_SPACE_KEYS=${CONFLUENCE_SPACE_KEYS:-}
       # CONFLUENCE_TOP_K=3
       # CONFLUENCE_MAX_CHARS=1500

@@ -44,11 +44,15 @@ CONFLUENCE_SITE_URL: str = os.getenv("CONFLUENCE_SITE_URL", "").rstrip("/")
 # Atlassian account email (used with classic API token for REST Basic auth)
 CONFLUENCE_USER_EMAIL: str = os.getenv("CONFLUENCE_USER_EMAIL", "")
 CONFLUENCE_API_TOKEN: str = os.getenv("CONFLUENCE_API_TOKEN", "")
-# MCP Teamwork Graph token — separate from the REST token.
-# Needs Rovo license + Teamwork Graph org-admin access.
-# If empty, the MCP/complex path is skipped; REST-only mode is used.
+# ── Rovo MCP token (for MCP server auth at https://mcp.atlassian.com/v1/mcp/authv2)
+# Used as Bearer token when connecting to the MCP server.
 # Generate at: https://id.atlassian.com/manage-profile/security/api-tokens
 CONFLUENCE_MCP_TOKEN: str = os.getenv("CONFLUENCE_MCP_TOKEN", "")
+# ── Teamwork Graph token (for getTeamworkGraphContext / getTeamworkGraphObject)
+# Separate token dedicated to Teamwork Graph API scope.
+# Requires org-admin to enable Teamwork Graph API access at admin.atlassian.com.
+# Falls back to CONFLUENCE_MCP_TOKEN if empty.
+CONFLUENCE_GRAPH_TOKEN: str = os.getenv("CONFLUENCE_GRAPH_TOKEN", "")
 # Comma-separated Confluence space keys to scope searches, e.g. "RUNBOOKS,OPS,PAYMENT"
 # Leave empty to search across all spaces the token has access to.
 CONFLUENCE_SPACE_KEYS: str = os.getenv("CONFLUENCE_SPACE_KEYS", "")
