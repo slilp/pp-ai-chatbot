@@ -41,9 +41,14 @@ PROMPTS_DIR: Path = Path(__file__).parent / "prompts"
 CONFLUENCE_ENABLED: bool = os.getenv("CONFLUENCE_ENABLED", "false").lower() == "true"
 # e.g. https://yourcompany.atlassian.net  (no trailing slash)
 CONFLUENCE_SITE_URL: str = os.getenv("CONFLUENCE_SITE_URL", "").rstrip("/")
-# Atlassian account email (used with API token for Basic auth)
+# Atlassian account email (used with classic API token for REST Basic auth)
 CONFLUENCE_USER_EMAIL: str = os.getenv("CONFLUENCE_USER_EMAIL", "")
 CONFLUENCE_API_TOKEN: str = os.getenv("CONFLUENCE_API_TOKEN", "")
+# MCP Teamwork Graph token — separate from the REST token.
+# Needs Rovo license + Teamwork Graph org-admin access.
+# If empty, the MCP/complex path is skipped; REST-only mode is used.
+# Generate at: https://id.atlassian.com/manage-profile/security/api-tokens
+CONFLUENCE_MCP_TOKEN: str = os.getenv("CONFLUENCE_MCP_TOKEN", "")
 # Comma-separated Confluence space keys to scope searches, e.g. "RUNBOOKS,OPS,PAYMENT"
 # Leave empty to search across all spaces the token has access to.
 CONFLUENCE_SPACE_KEYS: str = os.getenv("CONFLUENCE_SPACE_KEYS", "")
