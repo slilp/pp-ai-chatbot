@@ -18,6 +18,7 @@ from openai import OpenAI
 
 import config
 from opensearch_client import client as os_client
+from utils.log_dedup import deduplicate_logs
 from utils.pii_mask import mask_doc
 
 logger = logging.getLogger(__name__)
@@ -95,6 +96,10 @@ def _format_logs(docs: list[dict]) -> str:
         if msg_text:
             truncated = msg_text if len(msg_text) <= 400 else msg_text[:400] + "...[truncated]"
             lines.append(f"    msg: {truncated}")
+        # Show dedup annotation when this entry represents multiple identical logs
+        dedup_count = doc.get("_dedup_count", 1)
+        if dedup_count > 1:
+            lines.append(f"    ⚠ [{dedup_count - 1} duplicate(s) collapsed — same error pattern]")
         lines.append("")
 
     return "\n".join(lines)
@@ -136,24 +141,27 @@ def analyze(
             "The time range, filters, or search term may not match any logs."
         )
 
-    masked_docs = mask_doc(docs)
-    log_text = _format_logs(masked_docs)
+    masked_docs  = mask_doc(docs)
+    deduped_docs = deduplicate_logs(masked_docs)
+    log_text     = _format_logs(deduped_docs)
 
     # Hard cap: truncate log text to stay within the analyzer model's context window.
     if len(log_text) > config.MAX_LOG_CHARS:
         log_text = log_text[: config.MAX_LOG_CHARS]
         log_text += f"\n\n...[truncated to {config.MAX_LOG_CHARS} chars — increase MAX_LOG_CHARS or analyzer ctx-size to see more]"
         logger.warning(
-            "Log text truncated to %d chars (had %d entries, %d chars total)",
+            "Log text truncated to %d chars (raw=%d docs, deduped=%d docs)",
             config.MAX_LOG_CHARS,
             len(docs),
-            len(_format_logs(masked_docs)),
+            len(deduped_docs),
         )
 
     logger.info(
-        "Analyzer sending %d entries to LLM (%d chars)",
-        len(docs),
+        "Analyzer sending %d entries to LLM (%d chars) [raw=%d, after dedup=%d]",
+        len(deduped_docs),
         len(log_text),
+        len(docs),
+        len(deduped_docs),
     )
 
     response = _client.chat.completions.create(
