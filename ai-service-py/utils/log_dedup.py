@@ -11,8 +11,7 @@ and cap the output list at LOG_DEDUP_MAX_LOGS.
 
 Result: 150 identical BP50002 errors → 1 entry + "[149 duplicates collapsed]"
 
-Why Python-only: datasketch MinHash LSH is a pure-Python probabilistic data
-structure with no production-grade equivalent in Go or Node.js.
+Uses datasketch MinHash LSH for probabilistic near-duplicate detection.
 
 Config:
   LOG_DEDUP_ENABLED            true / false  (default: true)
