@@ -43,22 +43,29 @@ services:
     build: ./ai-service-py
     image: blinksp/ai-chatbot:ai-service
     ports:
-      - "9090:8080"
+      - "8080:8080"
     environment:
       # LLM (OpenAI-compatible: llama-swap, LM Studio, vLLM, etc.)
-      - LLM_BASE_URL=${LLM_BASE_URL:-http://10.255.14.156:8080/v1}
-      # - LLM_BASE_URL=http://10.243.26.80:1234/v1
-      # - LLM_API_KEY=${LLM_API_KEY:-llm-key}
-      - ORCHESTRATOR_MODEL=${ORCHESTRATOR_MODEL:-qwen3-32b}
-      - ANALYZER_MODEL=${ANALYZER_MODEL:-qwen3-14b}
-      # - ORCHESTRATOR_MODEL=qwen/qwen3-14b
-      # - ANALYZER_MODEL=qwen/qwen3-8b
+      # - LLM_BASE_URL=${LLM_BASE_URL:-http://10.255.14.156:8080/v1}
+      - LLM_BASE_URL=http://10.243.26.80:1234/v1
+      - LLM_API_KEY=${LLM_API_KEY:-llm-key}
+      # - ORCHESTRATOR_MODEL=${ORCHESTRATOR_MODEL:-qwen3-32b}
+      # - ANALYZER_MODEL=${ANALYZER_MODEL:-qwen3-14b}
+      - ORCHESTRATOR_MODEL=qwen/qwen3-14b
+      - ANALYZER_MODEL=qwen/qwen3-8b
       # Optional: point analyzer at a different endpoint for load balancing
       # - ANALYZER_BASE_URL=http://host.docker.internal:1235/v1
       # OpenSearch
       - OPENSEARCH_URL=http://opensearch:9200
       - OPENSEARCH_INDEX=payment-platform-uat-sample
       - PORT=8080
+      # Confluence RAG (P7) — set token + spaces to enable
+      # Get token: https://id.atlassian.com/manage-profile/security/api-tokens
+      - CONFLUENCE_ENABLED=${CONFLUENCE_ENABLED:-false}
+      - CONFLUENCE_API_TOKEN=${CONFLUENCE_API_TOKEN:-}
+      - CONFLUENCE_SPACE_KEYS=${CONFLUENCE_SPACE_KEYS:-}
+      # CONFLUENCE_TOP_K=3
+      # CONFLUENCE_MAX_CHARS=1500
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

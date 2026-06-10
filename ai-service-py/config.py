@@ -34,3 +34,15 @@ MAX_LOG_HITS: int = int(os.getenv("MAX_LOG_HITS", "150"))
 MAX_LOG_CHARS: int = int(os.getenv("MAX_LOG_CHARS", "20000"))
 
 PROMPTS_DIR: Path = Path(__file__).parent / "prompts"
+
+# ── Confluence RAG (P7) ────────────────────────────────────────────────────────
+# Set CONFLUENCE_ENABLED=true and CONFLUENCE_API_TOKEN to activate.
+# Get an Atlassian API token at: https://id.atlassian.com/manage-profile/security/api-tokens
+CONFLUENCE_ENABLED: bool = os.getenv("CONFLUENCE_ENABLED", "false").lower() == "true"
+CONFLUENCE_API_TOKEN: str = os.getenv("CONFLUENCE_API_TOKEN", "")
+# Comma-separated Confluence space keys to scope searches, e.g. "RUNBOOKS,OPS,PAYMENT"
+# Leave empty to search across all spaces the token has access to.
+CONFLUENCE_SPACE_KEYS: str = os.getenv("CONFLUENCE_SPACE_KEYS", "")
+CONFLUENCE_TOP_K: int = int(os.getenv("CONFLUENCE_TOP_K", "3"))
+# Max chars of Confluence content injected per stage (keeps LLM context budget sane)
+CONFLUENCE_MAX_CHARS: int = int(os.getenv("CONFLUENCE_MAX_CHARS", "1500"))
