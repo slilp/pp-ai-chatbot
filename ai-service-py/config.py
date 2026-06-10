@@ -36,9 +36,13 @@ MAX_LOG_CHARS: int = int(os.getenv("MAX_LOG_CHARS", "20000"))
 PROMPTS_DIR: Path = Path(__file__).parent / "prompts"
 
 # ── Confluence RAG (P7) ────────────────────────────────────────────────────────
-# Set CONFLUENCE_ENABLED=true and CONFLUENCE_API_TOKEN to activate.
+# Set CONFLUENCE_ENABLED=true and fill credentials to activate.
 # Get an Atlassian API token at: https://id.atlassian.com/manage-profile/security/api-tokens
 CONFLUENCE_ENABLED: bool = os.getenv("CONFLUENCE_ENABLED", "false").lower() == "true"
+# e.g. https://yourcompany.atlassian.net  (no trailing slash)
+CONFLUENCE_SITE_URL: str = os.getenv("CONFLUENCE_SITE_URL", "").rstrip("/")
+# Atlassian account email (used with API token for Basic auth)
+CONFLUENCE_USER_EMAIL: str = os.getenv("CONFLUENCE_USER_EMAIL", "")
 CONFLUENCE_API_TOKEN: str = os.getenv("CONFLUENCE_API_TOKEN", "")
 # Comma-separated Confluence space keys to scope searches, e.g. "RUNBOOKS,OPS,PAYMENT"
 # Leave empty to search across all spaces the token has access to.

@@ -59,9 +59,11 @@ services:
       - OPENSEARCH_URL=http://opensearch:9200
       - OPENSEARCH_INDEX=payment-platform-uat-sample
       - PORT=8080
-      # Confluence RAG (P7) — set token + spaces to enable
+      # Confluence RAG (P7) — set credentials to enable
       # Get token: https://id.atlassian.com/manage-profile/security/api-tokens
       - CONFLUENCE_ENABLED=${CONFLUENCE_ENABLED:-false}
+      - CONFLUENCE_SITE_URL=${CONFLUENCE_SITE_URL:-}
+      - CONFLUENCE_USER_EMAIL=${CONFLUENCE_USER_EMAIL:-}
       - CONFLUENCE_API_TOKEN=${CONFLUENCE_API_TOKEN:-}
       - CONFLUENCE_SPACE_KEYS=${CONFLUENCE_SPACE_KEYS:-}
       # CONFLUENCE_TOP_K=3
